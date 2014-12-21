@@ -13,7 +13,7 @@ BEGIN {
 }
 use Test::More ($skip_all ?
     (skip_all => 'BDF not supported until FreeType 2.1.1') :
-    (tests => 71 + 4 * 2 + 1836 * 1));
+    (tests => 76 + 4 * 2 + 1836 * 1));
 exit 0 if $skip_all;
 
 my $data_dir = catdir(qw( t data ));
@@ -60,13 +60,12 @@ foreach my $method (sort keys %expected_flags) {
 }
 
 # Some other general properties.
-is($bdf->number_of_glyphs, 1836, '$face->number_of_glyphs() is right');
+is($bdf->number_of_glyphs, 1837, '$face->number_of_glyphs() is right');
 is($bdf->units_per_em, undef, 'units_per_em() meaningless');
 is($bdf->underline_position, undef, 'underline position meaningless');
 is($bdf->underline_thickness, undef, 'underline thickness meaningless');
-#is($bdf->ascender, undef, 'ascender meaningless');
-#is($bdf->descender, undef, 'descender meaningless');
-
+is($bdf->ascender, undef, 'ascender meaningless');
+is($bdf->descender, undef, 'descender meaningless');
 
 # Test getting the set of fixed sizes available.
 is(scalar $bdf->fixed_sizes, 1, 'BDF files have a single fixed size');
@@ -75,13 +74,15 @@ is($fixed_size->{width}, 5, 'fixed size width');
 is($fixed_size->{height}, 7, 'fixed size width');
 ok(abs($fixed_size->{size} - (70 / 722.7 * 72)) < 0.1,
    "fixed size is 70 printer's decipoints");
-ok(abs($fixed_size->{x_res_dpi} - 75) < 0.1, 'fixed size x resolution 75dpi');
-ok(abs($fixed_size->{y_res_dpi} - 75) < 0.1, 'fixed size y resolution 75dpi');
+ok(abs($fixed_size->{x_res_dpi} - 72) < 1, 'fixed size x resolution 72dpi');
+ok(abs($fixed_size->{y_res_dpi} - 72) < 1, 'fixed size y resolution 72dpi');
 ok(abs($fixed_size->{size} * $fixed_size->{x_res_dpi} / 72
        - $fixed_size->{x_res_ppem}) < 0.1, 'fixed size x resolution in ppem');
 ok(abs($fixed_size->{size} * $fixed_size->{y_res_dpi} / 72
        - $fixed_size->{y_res_ppem}) < 0.1, 'fixed size y resolution in ppem');
 
+is $bdf->namedinfos, undef, "no named infos for fixed size font";
+is $bdf->bounding_box, undef, "no bounding box for fixed size font";
 
 # Test iterating over all the characters.  1836*1 tests.
 my $glyph_list_filename = catfile($data_dir, 'bdf_glyphs.txt');
@@ -102,6 +103,22 @@ $bdf->foreach_char(sub {
 });
 is(scalar <$glyph_list>, undef, "we aren't missing any glyphs");
 
+subtest "charmaps" => sub {
+    subtest "default charmap" => sub {
+        my $default_cm = $bdf->charmap;
+        ok $default_cm;
+        is $default_cm->platform_id, 3;
+        is $default_cm->encoding_id, 1;
+        is $default_cm->encoding, FT_ENCODING_UNICODE;
+    };
+
+    subtest "available charmaps" => sub {
+        my $charmaps = $bdf->charmaps;
+        ok $charmaps;
+        is ref($charmaps), 'ARRAY';
+        is scalar(@$charmaps), 1;
+    }
+};
 
 # Test metrics on some particlar glyphs.
 my %glyph_metrics = (

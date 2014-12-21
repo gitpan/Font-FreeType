@@ -33,6 +33,15 @@ push @properties, 'Vertical' if $face->has_vertical_metrics;
 print join('  ', @properties), "\n" if @properties;
 
 print "Units per em: ", $face->units_per_em, "\n" if $face->units_per_em;
+if ($face->is_scalable) {
+    my $bb = $face->bounding_box;
+    print sprintf('Global BBox: (%d,%d):(%d,%d)',
+                  map { $bb->$_ } qw/x_min y_min x_max y_max/),
+        "\n";
+    print "Ascent: ", $face->ascender, "\n";
+    print "Descent: ", $face->descender, "\n";
+    print "Text height: ", $face->height, "\n";
+}
 print "Number of glyphs: ", $face->number_of_glyphs, "\n";
 print "Number of faces: ", $face->number_of_faces, "\n"
   if $face->number_of_faces > 1;

@@ -157,8 +157,8 @@ See also C<has_glyph_names()> above.
 
 =item height()
 
-The height of the text.  Not entirely sure what that corresponds
-to (is it the line height or what?).
+The line height of the text, i.e. distance between baselines of two
+lines of text.
 
 =item is_bold()
 
@@ -275,12 +275,25 @@ be used to scale font-specific measurements to the right size, although
 that's usually done for you by FreeType.  Usually this is 2048 for
 TrueType fonts.
 
+=item charmap()
+
+The current active L<charmap|Font::FreeType::CharMap> for this face.
+
+=item charmaps()
+
+An array of the L<charmaps|Font::FreeType::CharMap> of the face.
+
+=item bounding_box()
+
+The outline's L<bounding box|Font::FreeType::BoundingBox> for this face.
+
 =back
 
 =head1 SEE ALSO
 
 L<Font::FreeType|Font::FreeType>,
 L<Font::FreeType::Glyph|Font::FreeType::Glyph>
+L<Font::FreeType::CharMap>
 
 =head1 AUTHOR
 

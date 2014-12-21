@@ -7,7 +7,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 72 + 5 * 2 + 256 * 2;
+use Test::More tests => 78 + 5 * 2 + 256 * 2;
 use File::Spec::Functions;
 use Font::FreeType;
 
@@ -59,17 +59,55 @@ foreach my $method (sort keys %expected_flags) {
 # Some other general properties.
 is($vera->number_of_glyphs, 268, '$face->number_of_glyphs() is right');
 is($vera->units_per_em, 2048, '$face->units_per_em() is right');
-is($vera->underline_position, -213, 'underline position');
+is($vera->underline_position, -284, 'underline position');
 is($vera->underline_thickness, 143, 'underline thickness');
 # italic angle 0
-#is($vera->ascender, 1556, 'ascender');
-#is($vera->descender, 492, 'descender');
-
+is($vera->ascender, 1901, 'ascender');
+is($vera->descender, -483, 'descender');
+is($vera->height, 2384, 'height');
 
 # Test getting the set of fixed sizes available.
 my @fixed_sizes = $vera->fixed_sizes;
 is(scalar @fixed_sizes, 0, 'Vera has no fixed sizes');
 
+subtest "charmaps" => sub {
+    subtest "default charmap" => sub {
+        my $default_cm = $vera->charmap;
+        ok $default_cm;
+        is $default_cm->platform_id, 3;
+        is $default_cm->encoding_id, 1;
+        is $default_cm->encoding, FT_ENCODING_UNICODE;
+    };
+
+    subtest "available charmaps" => sub {
+        my $charmaps = $vera->charmaps;
+        ok $charmaps;
+        is ref($charmaps), 'ARRAY';
+        is scalar(@$charmaps), 2;
+    }
+};
+
+
+subtest "named infos" => sub {
+    my $infos = $vera->namedinfos;
+    ok $infos;
+    is scalar(@$infos), 22;
+    my $copy_info = $infos->[0];
+    like $copy_info->string, qr/Copyright.*Bitstream, Inc./;
+    is $copy_info->language_id, 0;
+    is $copy_info->platform_id, 1;
+    is $copy_info->name_id, 0;
+    is $copy_info->encoding_id, 0;
+};
+
+subtest "bounding box" => sub {
+    my $bb = $vera->bounding_box;
+    ok $bb;
+    is $bb->x_min, -375, "x_min is correct";
+    is $bb->y_min, -483, "y_min is correct";
+    is $bb->x_max, 2636, "x_max is correct";
+    is $bb->y_max, 1901, "y_max is correct";
+};
 
 # Test iterating over all the characters.  256*2 tests.
 # Note that this only gets us 256 glyphs, because there are another 10 which

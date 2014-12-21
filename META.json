@@ -1,0 +1,40 @@
+{
+   "abstract" : "unknown",
+   "author" : [
+      "Geoff Richards <qef@laxan.com>"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "ExtUtils::MakeMaker version 7.04, CPAN::Meta::Converter version 2.143240",
+   "license" : [
+      "unknown"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Font-FreeType",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "inc"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "0",
+            "Test::Warnings" : "0"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "Devel::CheckLib" : "0"
+         }
+      },
+      "runtime" : {
+         "requires" : {}
+      }
+   },
+   "release_status" : "testing",
+   "version" : "0.04_01"
+}

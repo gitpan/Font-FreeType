@@ -17,6 +17,7 @@ extern "C" {
 #endif
 
 #include <ft2build.h>
+#include FT_SFNT_NAMES_H
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 #include FT_OUTLINE_H
@@ -73,9 +74,7 @@ typedef struct QefFT2_Errstr_ QefFT2_Errstr;
 QefFT2_Errstr qefft2_errstr[] = /* rest filled in by the header */
 #include FT_ERRORS_H
 
-
-#define ftnum_to_nv(num) newSVnv((double) (num) / 64.0)
-
+#define ftnum_to_nv(num) newSVnv((double) (num) / 1.0)
 
 struct QefFT2_Glyph_
 {
@@ -104,6 +103,9 @@ struct QefFT2_Outline_Decompose_Extra_
 
 typedef FT_Library Font_FreeType;
 typedef FT_Face Font_FreeType_Face;
+typedef FT_CharMap Font_FreeType_CharMap;
+typedef FT_BBox* Font_FreeType_BoundingBox;
+typedef FT_SfntName* Font_FreeType_NamedInfo;
 typedef struct QefFT2_Glyph_ * Font_FreeType_Glyph;
 
 
@@ -144,8 +146,27 @@ const static QefFT2_Uv_Const qefft2_uv_const[] =
     QEFFT2_CONSTANT(FT_KERNING_DEFAULT)
     QEFFT2_CONSTANT(FT_KERNING_UNFITTED)
     QEFFT2_CONSTANT(FT_KERNING_UNSCALED)
-};
 
+    QEFFT2_CONSTANT(FT_ENCODING_NONE)
+    QEFFT2_CONSTANT(FT_ENCODING_UNICODE)
+    QEFFT2_CONSTANT(FT_ENCODING_MS_SYMBOL)
+    QEFFT2_CONSTANT(FT_ENCODING_SJIS)
+    QEFFT2_CONSTANT(FT_ENCODING_GB2312)
+    QEFFT2_CONSTANT(FT_ENCODING_BIG5)
+    QEFFT2_CONSTANT(FT_ENCODING_WANSUNG)
+    QEFFT2_CONSTANT(FT_ENCODING_JOHAB)
+    QEFFT2_CONSTANT(FT_ENCODING_ADOBE_LATIN_1)
+    QEFFT2_CONSTANT(FT_ENCODING_ADOBE_STANDARD)
+    QEFFT2_CONSTANT(FT_ENCODING_ADOBE_EXPERT)
+    QEFFT2_CONSTANT(FT_ENCODING_ADOBE_CUSTOM)
+    QEFFT2_CONSTANT(FT_ENCODING_APPLE_ROMAN)
+    QEFFT2_CONSTANT(FT_ENCODING_OLD_LATIN_2)
+    QEFFT2_CONSTANT(FT_ENCODING_MS_SJIS)
+    QEFFT2_CONSTANT(FT_ENCODING_MS_GB2312)
+    QEFFT2_CONSTANT(FT_ENCODING_MS_BIG5)
+    QEFFT2_CONSTANT(FT_ENCODING_MS_WANSUNG)
+    QEFFT2_CONSTANT(FT_ENCODING_MS_JOHAB)
+};
 
 static void
 errchk (FT_Error err, const char *desc)
@@ -163,7 +184,7 @@ errchk (FT_Error err, const char *desc)
         ++errmap;
     }
 
-    croak("error %s: unkown error code", desc);
+    croak("error %s: unknown error code", desc);
 }
 
 static SV *
@@ -226,7 +247,7 @@ ensure_outline_loaded (FT_Face face, Font_FreeType_Glyph glyph)
 #define QEFFT2_CALL_TIDY  FREETMPS; LEAVE;
 
 static int
-handle_move_to (FT_Vector *to, void *data)
+handle_move_to (const FT_Vector *to, void *data)
 {
     struct QefFT2_Outline_Decompose_Extra_ *extra = data;
     double x = QEFFT2_NUM(to->x), y = QEFFT2_NUM(to->y);
@@ -243,7 +264,7 @@ handle_move_to (FT_Vector *to, void *data)
 }
 
 static int
-handle_line_to (FT_Vector *to, void *data)
+handle_line_to (const FT_Vector *to, void *data)
 {
     struct QefFT2_Outline_Decompose_Extra_ *extra = data;
     double x = QEFFT2_NUM(to->x), y = QEFFT2_NUM(to->y);
@@ -260,7 +281,7 @@ handle_line_to (FT_Vector *to, void *data)
 }
 
 static int
-handle_conic_to (FT_Vector *control, FT_Vector *to, void *data)
+handle_conic_to (const FT_Vector *control, const FT_Vector *to, void *data)
 {
     struct QefFT2_Outline_Decompose_Extra_ *extra = data;
     double x = QEFFT2_NUM(to->x), y = QEFFT2_NUM(to->y);
@@ -292,7 +313,7 @@ handle_conic_to (FT_Vector *control, FT_Vector *to, void *data)
 }
 
 static int
-handle_cubic_to (FT_Vector *control1, FT_Vector *control2, FT_Vector *to,
+handle_cubic_to (const FT_Vector *control1, const FT_Vector *control2, const FT_Vector *to,
                  void *data)
 {
     struct QefFT2_Outline_Decompose_Extra_ *extra = data;
@@ -313,8 +334,6 @@ handle_cubic_to (FT_Vector *control1, FT_Vector *control2, FT_Vector *to,
     return 0;
 }
 
-
-
 MODULE = Font::FreeType   PACKAGE = Font::FreeType   PREFIX = qefft2_library_
 
 PROTOTYPES: DISABLE
@@ -329,9 +348,11 @@ qefft2_import (const char *target_pkg)
         stash = gv_stashpv(target_pkg, 0);
         if (!stash)
             croak("the package I'm importing into doesn't seem to exist");
-        for (i = 0; i < sizeof(qefft2_uv_const) / sizeof(QefFT2_Uv_Const); ++i)
-            newCONSTSUB(stash, qefft2_uv_const[i].name,
-                        newSVuv(qefft2_uv_const[i].value));
+        for (i = 0; i < sizeof(qefft2_uv_const) / sizeof(QefFT2_Uv_Const); ++i) {
+            const char* name = qefft2_uv_const[i].name;
+            if ( !hv_exists(stash, name, strlen(name)) )
+                 newCONSTSUB(stash, name,  newSVuv(qefft2_uv_const[i].value));
+        }
 
 
 Font_FreeType
@@ -380,13 +401,6 @@ qefft2_face (Font_FreeType library, const char *filename, int faceidx, FT_Int32 
     CODE:
         errchk(FT_New_Face(library, filename, faceidx, &RETVAL),
                "opening font face");
-        /* Set a default pixel size if one is known, to avoid confusing
-         * errors if the user forgets.  */
-        if (RETVAL->num_fixed_sizes) {
-            size = &RETVAL->available_sizes[0];
-            errchk(FT_Set_Pixel_Sizes(RETVAL, size->width, size->height),
-                   "setting default pixel size of freetype face");
-        }
         library_sv = SvRV(ST(0));
         SvREFCNT_inc(library_sv);
         New(0, extra, 1, QefFT2_Face_Extra);
@@ -592,7 +606,7 @@ qefft2_face_set_pixel_size (Font_FreeType_Face face, FT_UInt width, FT_UInt heig
 SV *
 qefft2_face_height (Font_FreeType_Face face)
     CODE:
-        RETVAL = FT_IS_SCALABLE(face) ? ftnum_to_nv(face->size->metrics.height)
+        RETVAL = FT_IS_SCALABLE(face) ? newSViv(face->height)
                                       : &PL_sv_undef;
     OUTPUT:
         RETVAL
@@ -648,7 +662,7 @@ qefft2_face_fixed_sizes (Font_FreeType_Face face)
 SV *
 qefft2_face_ascender (Font_FreeType_Face face)
     CODE:
-        RETVAL = FT_IS_SCALABLE(face) ? ftnum_to_nv(face->size->metrics.ascender)
+        RETVAL = FT_IS_SCALABLE(face) ? newSViv(face->ascender)
                                       : &PL_sv_undef;
     OUTPUT:
         RETVAL
@@ -657,7 +671,7 @@ qefft2_face_ascender (Font_FreeType_Face face)
 SV *
 qefft2_face_descender (Font_FreeType_Face face)
     CODE:
-        RETVAL = FT_IS_SCALABLE(face) ? ftnum_to_nv(face->size->metrics.descender)
+        RETVAL = FT_IS_SCALABLE(face) ? newSViv(face->descender)
                                       : &PL_sv_undef;
     OUTPUT:
         RETVAL
@@ -682,6 +696,67 @@ qefft2_face_underline_thickness (Font_FreeType_Face face)
     OUTPUT:
         RETVAL
 
+
+Font_FreeType_CharMap
+qefft2_face_charmap (Font_FreeType_Face face)
+    CODE:
+        RETVAL = face->charmap;
+    OUTPUT:
+        RETVAL
+
+AV *
+qefft2_face_charmaps (Font_FreeType_Face face)
+    PREINIT:
+        AV* array;
+        int i;
+        Font_FreeType_CharMap* ptr;
+    CODE:
+        array = newAV();
+        ptr = face->charmaps;
+        for(i = 0; i < face->num_charmaps; i++) {
+            SV *sv = newSV(0);
+            sv_setref_pv(sv, "Font::FreeType::CharMap", (void *) *ptr++);
+            av_push(array, sv);
+        }
+        RETVAL = array;
+    OUTPUT:
+        RETVAL
+
+Font_FreeType_BoundingBox
+qefft2_face_bounding_box (Font_FreeType_Face face)
+    CODE:
+        if (!FT_IS_SCALABLE(face)) {
+            XSRETURN_UNDEF;
+        } else {
+            RETVAL = &face->bbox;
+        }
+    OUTPUT:
+        RETVAL
+
+AV*
+qefft2_face_namedinfos (Font_FreeType_Face face)
+    PREINIT:
+        AV* array;
+        int i;
+    CODE:
+        if (!FT_IS_SCALABLE(face)) {
+            XSRETURN_UNDEF;
+        } else {
+            array = newAV();
+            int count = FT_Get_Sfnt_Name_Count(face);
+            for(i = 0; i < count; i++) {
+                SV *sv = newSV(0);
+                FT_SfntName* sfnt;
+                New(0, sfnt, 1, FT_SfntName);
+                errchk(FT_Get_Sfnt_Name(face, i, sfnt),
+                       "loading sfnt structure");
+                sv_setref_pv(sv, "Font::FreeType::NamedInfo", (void *) sfnt);
+                av_push(array, sv);
+            }
+            RETVAL = array;
+        }
+    OUTPUT:
+        RETVAL
 
 void
 qefft2_face_kerning (Font_FreeType_Face face, FT_UInt left_glyph_idx, FT_UInt right_glyph_idx, UV kern_mode = FT_KERNING_DEFAULT)
@@ -805,7 +880,8 @@ qefft2_glyph_char_code (Font_FreeType_Glyph glyph)
             char_code = FT_Get_First_Char(face, &glyph_idx);
             while (glyph_idx) {
                 if (glyph_idx == glyph->index) {
-                    RETVAL = newSVuv((UV) glyph->char_code = char_code);
+                    glyph->char_code = char_code;
+                    RETVAL = newSVuv((UV) glyph->char_code);
                     break;
                 }
                 char_code = FT_Get_Next_Char(face, char_code, &glyph_idx);
@@ -1088,5 +1164,101 @@ qefft2_glyph_bitmap (Font_FreeType_Glyph glyph, UV render_mode = FT_RENDER_MODE_
         PUSHs(sv_2mortal(newRV_inc((SV *) rows)));
         PUSHs(sv_2mortal(newSViv(glyph_ft->bitmap_left)));
         PUSHs(sv_2mortal(newSViv(glyph_ft->bitmap_top)));
+
+
+MODULE = Font::FreeType   PACKAGE = Font::FreeType::CharMap   PREFIX = qefft2_charmap_
+
+FT_Encoding
+qefft2_charmap_encoding (Font_FreeType_CharMap charmap)
+    CODE:
+        RETVAL = charmap->encoding;
+    OUTPUT:
+        RETVAL
+
+FT_UShort
+qefft2_charmap_platform_id (Font_FreeType_CharMap charmap)
+    CODE:
+        RETVAL = charmap->platform_id;
+    OUTPUT:
+        RETVAL
+
+FT_UShort
+qefft2_charmap_encoding_id (Font_FreeType_CharMap charmap)
+    CODE:
+        RETVAL = charmap->encoding_id;
+    OUTPUT:
+        RETVAL
+
+MODULE = Font::FreeType   PACKAGE = Font::FreeType::NamedInfo   PREFIX = qefft2_named_info_
+
+void
+qefft2_named_info_DESTROY (Font_FreeType_NamedInfo info)
+    CODE:
+        Safefree(info);
+
+FT_UShort
+qefft2_named_info_platform_id (Font_FreeType_NamedInfo info)
+    CODE:
+        RETVAL = info->platform_id;
+    OUTPUT:
+        RETVAL
+
+FT_UShort
+qefft2_named_info_encoding_id (Font_FreeType_NamedInfo info)
+    CODE:
+        RETVAL = info->encoding_id;
+    OUTPUT:
+        RETVAL
+
+FT_UShort
+qefft2_named_info_language_id (Font_FreeType_NamedInfo info)
+    CODE:
+        RETVAL = info->language_id;
+    OUTPUT:
+        RETVAL
+
+FT_UShort
+qefft2_named_info_name_id (Font_FreeType_NamedInfo info)
+    CODE:
+        RETVAL = info->name_id;
+    OUTPUT:
+        RETVAL
+
+SV*
+qefft2_named_info_string (Font_FreeType_NamedInfo info)
+    CODE:
+        RETVAL = newSVpvn(info->string, info->string_len);
+    OUTPUT:
+        RETVAL
+
+MODULE = Font::FreeType   PACKAGE = Font::FreeType::BoundingBox   PREFIX = qefft2_bb_
+
+FT_Pos
+qefft2_bb_x_min (Font_FreeType_BoundingBox bb)
+    CODE:
+        RETVAL = bb->xMin;
+    OUTPUT:
+        RETVAL
+
+FT_Pos
+qefft2_bb_y_min (Font_FreeType_BoundingBox bb)
+    CODE:
+        RETVAL = bb->yMin;
+    OUTPUT:
+        RETVAL
+
+FT_Pos
+qefft2_bb_x_max (Font_FreeType_BoundingBox bb)
+    CODE:
+        RETVAL = bb->xMax;
+    OUTPUT:
+        RETVAL
+
+FT_Pos
+qefft2_bb_y_max (Font_FreeType_BoundingBox bb)
+    CODE:
+        RETVAL = bb->yMax;
+    OUTPUT:
+        RETVAL
 
 # vi:ts=4 sw=4 expandtab:
